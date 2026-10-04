@@ -1,4 +1,123 @@
 # Jaringan Komputer – Modul 2
+# Laporan Praktikum Jaringan Komputer - Modul 1 (The Mesh)
+
+**Repository ini berisi laporan pengerjaan praktikum infrastruktur jaringan berbasis GNS3 dan Docker, mencakup konfigurasi Routing, DNS Server, Web Server Statis, dan Web Server Dinamis.**
+
+---
+
+## Soal 1 — Perancangan Topologi Fisik
+
+**Tujuan:** Mendesain infrastruktur fisik jaringan ("The Mesh") di dalam GNS3 dengan membagi node ke dalam 5 area/segmen berbeda yang berpusat pada satu router utama (`rootkit`).
+
+### Langkah Pengerjaan
+
+1. Tarik node Docker dari daftar *appliance* GNS3 ke dalam *workspace*.
+2. Kelompokkan node ke dalam 5 area yang terhubung melalui *switch* perantara:
+   * **Segmen 10 (Server Inti & Web):** `prab`, `tedd`, `obladi`, `desmond`, `oblada`, `molly`.
+   * **Segmen 20 (Gerbang www):** `penny`.
+   * **Segmen 30 (Gerbang static):** `abbey`.
+   * **Segmen 40 (Klien Kiri):** `alpha`, `beta`, `gamma`.
+   * **Segmen 50 (Klien Kanan):** `delta`, `epsilon`.
+3. Hubungkan semua *switch* dari tiap segmen ke antarmuka (*interface*) Ethernet yang berbeda pada router `rootkit`.
+
+> **<img width="1840" height="872" alt="image" src="https://github.com/user-attachments/assets/522f6898-36cc-458c-8fda-de1754124eba" />
+**
+> `![Topologi The Mesh](path/to/image.png)`
+
+### Analisis
+
+- Pembagian ke dalam 5 segmen fisik terpisah menggunakan *switch* yang berbeda bertujuan untuk memecah *broadcast domain*. Ini mengisolasi lalu lintas jaringan internal tiap area agar tidak membebani area lain.
+- Router `rootkit` bertindak sebagai titik pusat (*star topology* secara makro), yang berarti kegagalan pada satu segmen klien tidak akan memutus koneksi di segmen server, namun jika `rootkit` mati, seluruh komunikasi lintas-segmen akan terputus.
+
+---
+
+## Soal 2 — Perancangan Topologi Logis (Skema Pengalamatan IP)
+
+**Tujuan:** Menentukan blok alamat IP (Network ID) dan mengalokasikan IP statis beserta *prefix* subnet untuk masing-masing segmen jaringan.
+
+### Langkah Pengerjaan
+
+1. Tetapkan *Network ID* dasar berdasarkan pembagian segmen:
+   * Segmen 10: `192.228.10.0/24`
+   * Segmen 20: `192.228.20.0/24`
+   * Segmen 30: `192.228.30.0/24`
+   * Segmen 40: `192.228.40.0/24`
+   * Segmen 50: `192.228.50.0/24`
+2. Alokasikan IP pertama (`.1`) dari setiap subnet untuk digunakan sebagai *Gateway* pada router `rootkit`.
+3. Ubah nama (*rename*) node di GNS3 agar menyertakan alamat IP menggunakan tanda hubung untuk memudahkan identifikasi tanpa melanggar aturan nama *container* Docker (Contoh: `prab` menjadi `prab-192-228-10-2`).
+
+> **[TODO — Masukkan screenshot tabel pengalamatan IP / desain logis jika ada]**
+
+### Analisis
+
+- Penggunaan *prefix* `/24` (Subnet Mask `255.255.255.0`) menyediakan hingga 254 *host* yang dapat digunakan per segmen. Ini lebih dari cukup untuk kebutuhan topologi *The Mesh* sekaligus memberikan ruang ekspansi jika ada penambahan *node* di masa depan.
+- Aturan penamaan IP langsung pada *hostname* visual GNS3 (tanpa menggunakan karakter `[` atau `.`) menghindari *error invalid name* dari *daemon* Docker di latar belakang.
+
+---
+
+## Soal 3 — Konfigurasi Antarmuka Router (`rootkit`)
+
+**Tujuan:** Mengaktifkan antarmuka jaringan pada router sentral (`rootkit`) dan memasang IP *Gateway* agar router dapat merutekan paket antar-subnet.
+
+### Langkah Pengerjaan
+
+1. Buka terminal/console pada node **`rootkit-192-228-10-1`**.
+2. Masukkan IP untuk tiap *interface* (`eth0` hingga `eth4`) yang terhubung ke switch segmen terkait.
+3. Nyalakan antarmuka jaringan dengan perintah `ip link set up`.
+
+> **[TODO — Masukkan screenshot hasil perintah `ip a` atau `ip route` pada terminal rootkit]**
+
+### Hasil Konfigurasi
+
+| Interface | Terhubung Ke | IP Address (Gateway) |
+|---|---|---|
+| `eth0` | Segmen 10 (Server) | `192.228.10.1/24` |
+| `eth1` | Segmen 20 (Penny) | `192.228.20.1/24` |
+| `eth2` | Segmen 30 (Abbey) | `192.228.30.1/24` |
+| `eth3` | Segmen 40 (Klien Kiri) | `192.228.40.1/24` |
+| `eth4` | Segmen 50 (Klien Kanan) | `192.228.50.1/24` |
+
+### Analisis
+
+- Setelah IP dikonfigurasi, tabel *routing* lokal pada `rootkit` akan otomatis terisi rute dengan status *Directly Connected* (C).
+- Oleh karena semua subnet langsung menempel secara fisik pada `rootkit`, kita tidak perlu repot menyetel protokol *routing* dinamis (seperti OSPF atau RIP) maupun *static route* manual.
+
+---
+
+## Soal 4 — Inisialisasi Server Inti (DNS)
+
+**Tujuan:** Mengonfigurasi IP statis secara spesifik pada node yang akan bertindak sebagai Master dan Slave DNS (`prab` dan `tedd`) sebagai persiapan sebelum mengatur *resolver* DNS masal di klien.
+
+### Langkah Pengerjaan
+
+1. Buka terminal **`prab-192-228-10-2`** (Master DNS) dan atur IP `192.228.10.2/24` beserta *default gateway* ke `192.228.10.1`.
+2. Buka terminal **`tedd-192-228-10-3`** (Slave DNS) dan atur IP `192.228.10.3/24` beserta *default gateway* ke `192.228.10.1`.
+
+> **[TODO — Masukkan screenshot eksekusi pemberian IP pada terminal prab dan tedd]**
+
+### Analisis
+
+- Server DNS mutlak membutuhkan IP Statis. Jika IP mereka berubah-ubah (DHCP), seluruh node klien di segmen lain akan kehilangan arah karena file `/etc/resolv.conf` mereka mengarah ke IP yang salah, membuat resolusi nama domain lumpuh total.
+
+---
+
+## Soal 5 — Konfigurasi Klien Masal (Script `soal5.sh`)
+
+**Tujuan:** Memberikan IP address, mendefinisikan *default gateway*, dan menetapkan DNS *Resolver* secara otomatis dan seragam pada seluruh node klien dan *web server* yang tersisa.
+
+### Langkah Pengerjaan
+
+1. Buat file script bash pada setiap node klien (contoh di bawah adalah untuk node `alpha` di segmen 40):
+   ```bash
+   cat > /root/soal5.sh << 'EOF'
+   #!/bin/bash
+   ip addr flush dev eth0
+   ip addr add 192.228.40.2/24 dev eth0
+   ip link set eth0 up
+   ip route add default via 192.228.40.1
+   echo "nameserver 192.228.10.2" > /etc/resolv.conf
+   echo "nameserver 192.228.10.3" >> /etc/resolv.conf
+   EOF
 ## README Dokumentasi Soal 11–20
 
 Dokumen ini mendokumentasikan konfigurasi, script, pengujian, hasil, dan poin presentasi untuk soal 11–20. Isinya mengikuti script dan bukti yang tersimpan pada dokumen praktikum yang diberikan. filecite tidak ditulis di dalam file markdown; citation dicantumkan pada jawaban ChatGPT.
