@@ -20,7 +20,7 @@
    * **Segmen 50 (Klien Kanan):** `delta`, `epsilon`.
 3. Hubungkan semua *switch* dari tiap segmen ke antarmuka (*interface*) Ethernet yang berbeda pada router `rootkit`.
 
->![Gambar 1.1 — topologi The MESH](Images/soal1.png)
+>![Gambar 1.1 — topologi The MESH](bukti/soal1.png)
 > `![Topologi The Mesh](path/to/image.png)`
 
 ### Analisis
@@ -45,7 +45,7 @@
 2. Alokasikan IP pertama (`.1`) dari setiap subnet untuk digunakan sebagai *Gateway* pada router `rootkit`.
 3. Ubah nama (*rename*) node di GNS3 agar menyertakan alamat IP menggunakan tanda hubung untuk memudahkan identifikasi tanpa melanggar aturan nama *container* Docker (Contoh: `prab` menjadi `prab-192-228-10-2`).
 
-> ![Gambar 2 — Ip Address](Images/soal2.png)
+> ![Gambar 2 — Ip Address](bukti/soal2.png)
 
 ### Analisis
 
@@ -64,7 +64,7 @@
 2. Masukkan IP untuk tiap *interface* (`eth0` hingga `eth4`) yang terhubung ke switch segmen terkait.
 3. Nyalakan antarmuka jaringan dengan perintah `ip link set up`.
 
-> ![Gambar 3 — Ip Address](Images/soal2.png)
+> ![Gambar 3 — Ip Address](bukti/soal2.png)
 
 ### Hasil Konfigurasi
 
@@ -92,8 +92,8 @@
 1. Buka terminal **`prab-192-228-10-2`** (Master DNS) dan atur IP `192.228.10.2/24` beserta *default gateway* ke `192.228.10.1`.
 2. Buka terminal **`tedd-192-228-10-3`** (Slave DNS) dan atur IP `192.228.10.3/24` beserta *default gateway* ke `192.228.10.1`.
 
-> ![Gambar 4.1 — Ip Address](Images/soal4.png)
-> ![Gambar 4.2 — Ip Address](Images/soal4.2.png)
+> ![Gambar 4.1 — Ip Address](bukti/soal4.png)
+> ![Gambar 4.2 — Ip Address](bukti/soal4.2.png)
 
 ### Analisis
 
@@ -193,7 +193,7 @@ nslookup www.K-58.com
 ```
 
 <!-- Ganti path gambar sesuai lokasi file di repository -->
-![Gambar 7.1 — Hasil resolusi domain vault dan www](Images/soal7.png)
+![Gambar 7.1 — Hasil resolusi domain vault dan www](bukti/soal7.png)
 
 *Gambar 7.1 — Hasil resolusi domain `vault` dan `www`.*
 
@@ -245,7 +245,7 @@ nslookup 192.228.10.4
 nslookup 192.228.20.2
 ```
 
-![Gambar 8.1 — Hasil pengujian PTR Record](Images/soal8.png)
+![Gambar 8.1 — Hasil pengujian PTR Record](bukti/soal8.png)
 
 *Gambar 8.1 — Hasil pengujian PTR Record.*
 
@@ -294,7 +294,7 @@ apache2ctl -k start
 curl http://vault.K-58.com/arsip/
 ```
 
-![Gambar 9.1 — Output HTML dari indeks direktori /arsip/](Images/soal9.png)
+![Gambar 9.1 — Output HTML dari indeks direktori /arsip/](bukti/soal9.png)
 
 *Gambar 9.1 — Output HTML dari indeks direktori `/arsip/`.*
 
@@ -353,8 +353,8 @@ curl http://core.K-58.com/
 curl http://core.K-58.com/profil
 ```
 
-![Gambar 10.1 — Eksekusi URL dinamis dan Clean URL](Images/soal10.png)
-![Gambar 10.2 — Eksekusi URL dinamis dan Clean URL](Images/soal10.2.png)
+![Gambar 10.1 — Eksekusi URL dinamis dan Clean URL](bukti/soal10.png)
+![Gambar 10.2 — Eksekusi URL dinamis dan Clean URL](bukti/soal10.2.png)
 *Gambar 10.1 — Eksekusi URL dinamis dan Clean URL.*
 
 ### Hasil Pengujian
