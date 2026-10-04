@@ -20,8 +20,7 @@
    * **Segmen 50 (Klien Kanan):** `delta`, `epsilon`.
 3. Hubungkan semua *switch* dari tiap segmen ke antarmuka (*interface*) Ethernet yang berbeda pada router `rootkit`.
 
-> **<img width="1840" height="872" alt="image" src="https://github.com/user-attachments/assets/522f6898-36cc-458c-8fda-de1754124eba" />
-**
+>![Gambar 1.1 — topologi The MESH](images/soal1.png)
 > `![Topologi The Mesh](path/to/image.png)`
 
 ### Analisis
@@ -46,7 +45,7 @@
 2. Alokasikan IP pertama (`.1`) dari setiap subnet untuk digunakan sebagai *Gateway* pada router `rootkit`.
 3. Ubah nama (*rename*) node di GNS3 agar menyertakan alamat IP menggunakan tanda hubung untuk memudahkan identifikasi tanpa melanggar aturan nama *container* Docker (Contoh: `prab` menjadi `prab-192-228-10-2`).
 
-> **[TODO — Masukkan screenshot tabel pengalamatan IP / desain logis jika ada]**
+> ![Gambar 2 — Ip Address](images/soal2.png)
 
 ### Analisis
 
@@ -65,7 +64,7 @@
 2. Masukkan IP untuk tiap *interface* (`eth0` hingga `eth4`) yang terhubung ke switch segmen terkait.
 3. Nyalakan antarmuka jaringan dengan perintah `ip link set up`.
 
-> **[TODO — Masukkan screenshot hasil perintah `ip a` atau `ip route` pada terminal rootkit]**
+> ![Gambar 3 — Ip Address](images/soal2.png)
 
 ### Hasil Konfigurasi
 
@@ -93,7 +92,8 @@
 1. Buka terminal **`prab-192-228-10-2`** (Master DNS) dan atur IP `192.228.10.2/24` beserta *default gateway* ke `192.228.10.1`.
 2. Buka terminal **`tedd-192-228-10-3`** (Slave DNS) dan atur IP `192.228.10.3/24` beserta *default gateway* ke `192.228.10.1`.
 
-> **[TODO — Masukkan screenshot eksekusi pemberian IP pada terminal prab dan tedd]**
+> ![Gambar 4.1 — Ip Address](images/soal4.png)
+> ![Gambar 4.2 — Ip Address](images/soal4.2.png)
 
 ### Analisis
 
@@ -193,7 +193,7 @@ nslookup www.K-58.com
 ```
 
 <!-- Ganti path gambar sesuai lokasi file di repository -->
-![Gambar 7.1 — Hasil resolusi domain vault dan www](images/7.1.png)
+![Gambar 7.1 — Hasil resolusi domain vault dan www](images/soal7.png)
 
 *Gambar 7.1 — Hasil resolusi domain `vault` dan `www`.*
 
@@ -245,7 +245,7 @@ nslookup 192.228.10.4
 nslookup 192.228.20.2
 ```
 
-![Gambar 8.1 — Hasil pengujian PTR Record](images/8.1.png)
+![Gambar 8.1 — Hasil pengujian PTR Record](images/soal8.png)
 
 *Gambar 8.1 — Hasil pengujian PTR Record.*
 
@@ -294,7 +294,7 @@ apache2ctl -k start
 curl http://vault.K-58.com/arsip/
 ```
 
-![Gambar 9.1 — Output HTML dari indeks direktori /arsip/](images/9.1.png)
+![Gambar 9.1 — Output HTML dari indeks direktori /arsip/](images/soal9.png)
 
 *Gambar 9.1 — Output HTML dari indeks direktori `/arsip/`.*
 
@@ -353,8 +353,8 @@ curl http://core.K-58.com/
 curl http://core.K-58.com/profil
 ```
 
-![Gambar 10.1 — Eksekusi URL dinamis dan Clean URL](images/10.1.png)
-
+![Gambar 10.1 — Eksekusi URL dinamis dan Clean URL](images/soal10.png)
+![Gambar 10.2 — Eksekusi URL dinamis dan Clean URL](images/soal10.2.png)
 *Gambar 10.1 — Eksekusi URL dinamis dan Clean URL.*
 
 ### Hasil Pengujian
