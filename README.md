@@ -118,6 +118,257 @@
    echo "nameserver 192.228.10.2" > /etc/resolv.conf
    echo "nameserver 192.228.10.3" >> /etc/resolv.conf
    EOF
+---
+## Soal 6 — Pengujian Routing Lintas Segmen (The Mesh)
+
+**Tujuan:** Memvalidasi konfigurasi pengalamatan IP statis dan Gateway pada seluruh node (hasil dari Soal 1 hingga 5) dengan melakukan pengiriman paket ICMP (*ping*) melintasi router utama menuju segmen jaringan yang berbeda.
+
+### Langkah Pengerjaan
+
+1. Buka terminal pada salah satu node klien, misalnya **`alpha`** (`192.228.40.2`).
+2. Lakukan pengujian konektivitas secara bertahap mulai dari gateway terdekat hingga ke node di segmen terjauh:
+   ```bash
+   # 1. Tes koneksi ke router (Gateway segmen 40)
+   ping -c 3 192.228.40.1
+   
+   # 2. Tes koneksi ke area Server Web (Segmen 10)
+   ping -c 3 192.228.10.4
+   
+   # 3. Tes koneksi ke area Klien seberang (Segmen 50)
+   ping -c 3 192.228.50.2
+---
+## Soal 6 — Pengujian Konektivitas Inter-VLAN/Subnet
+
+### Hasil Pengujian
+
+| Target | Ping IP Tujuan | Hasil |
+|--------|---------------|-------|
+| Gateway Lokal | `192.228.40.1` | ✅ Reply (64 bytes from 192.228.40.1) |
+| Server `obladi` | `192.228.10.4` | ✅ Reply (64 bytes from 192.228.10.4) |
+| Klien `delta` | `192.228.50.2` | ✅ Reply (64 bytes from 192.228.50.2) |
+
+### Analisis
+
+- Respons **Reply** pada seluruh pengujian memvalidasi bahwa tabel routing pada router sentral (`rootkit`) telah beroperasi dengan baik untuk merutekan lalu lintas Inter-VLAN/Subnet.
+- Pada pengujian lintas segmen, terlihat adanya pengurangan nilai **TTL (Time to Live)** pada paket balasan (biasanya menjadi `63`). Ini mengonfirmasi bahwa paket data secara fisik telah melewati setidaknya satu hop router jaringan.
+- Keberhasilan di **Layer 3 (Network Layer)** ini merupakan prasyarat mutlak sebelum mengonfigurasi layanan berbasis domain dan web (**Layer 7**).
+
+---
+
+## Soal 7 — Forward DNS, Load Balancing & CNAME
+
+**Tujuan:** Mengonfigurasi BIND9 Master di node `prab` untuk menerjemahkan nama domain `K-58.com` ke IP (Forward Lookup), membagi beban lalu lintas HTTP ke beberapa server web (Load Balancing), serta membuat alias domain (CNAME).
+
+### Langkah Pengerjaan
+
+**1.** Masuk ke terminal `prab` dan modifikasi file konfigurasi zona forward `/etc/bind/db.K-58.com`.
+
+**2.** Tambahkan pemetaan *Multiple A Record* untuk domain `vault` dan `core`, serta CNAME untuk alias:
+
+```dns
+; Multiple A Record (Load Balancing)
+vault   IN      A       192.228.10.4
+vault   IN      A       192.228.10.5
+
+core    IN      A       192.228.10.6
+core    IN      A       192.228.10.7
+
+; Canonical Name (Alias)
+www     IN      CNAME   penny.K-58.com.
+static  IN      CNAME   abbey.K-58.com.
+```
+
+**3.** Restart layanan DNS BIND9 secara manual (untuk mengatasi limitasi runlevel Docker):
+
+```bash
+pkill named 2>/dev/null
+named
+```
+
+**4.** Lakukan pengujian lookup dari klien `alpha`:
+
+```bash
+nslookup vault.K-58.com
+nslookup www.K-58.com
+```
+
+<!-- Ganti path gambar sesuai lokasi file di repository -->
+![Gambar 7.1 — Hasil resolusi domain vault dan www](images/7.1.png)
+
+*Gambar 7.1 — Hasil resolusi domain `vault` dan `www`.*
+
+### Hasil Pengujian
+
+| Perintah Pengujian | Respons DNS BIND9 |
+|--------------------|-------------------|
+| `nslookup vault.K-58.com` | Menampilkan 2 buah IP sekaligus (`192.228.10.4` dan `192.228.10.5`) |
+| `nslookup www.K-58.com` | Menampilkan canonical name `penny.K-58.com` (IP `192.228.20.2`) |
+
+### Analisis
+
+- **Load Balancing (Round-Robin):** Penugasan dua A Record pada satu hostname (`vault`) membuat BIND9 merespons kueri dengan menggilir urutan IP yang dikirim ke klien. Hal ini memungkinkan pendistribusian beban kerja agar tidak hanya berpusat pada satu web server.
+- **CNAME:** Penggunaan Canonical Name menyederhanakan manajemen DNS. Domain `www` hanya berupa alias; jika IP asli dari node `penny` berubah suatu saat nanti, administrator tidak perlu mengubah data pada rekaman `www`.
+
+---
+
+## Soal 8 — Reverse DNS (PTR Record) di Master & Slave
+
+**Tujuan:** Membangun Reverse Zone (`in-addr.arpa`) pada Master (`prab`) dan Slave (`tedd`) agar IP dari segmen 10, 20, dan 30 dapat diterjemahkan kembali (reverse lookup) menjadi hostname.
+
+### Langkah Pengerjaan
+
+**1. Konfigurasi Master (`prab`)**
+
+Buat file `/etc/bind/db.10`, `db.20`, dan `db.30`, lalu isi dengan *Pointer Record (PTR)* berdasarkan oktet terakhir alamat IP. Contoh konfigurasi pada `db.10`:
+
+```dns
+2       IN      PTR     prab.K-58.com.
+3       IN      PTR     tedd.K-58.com.
+4       IN      PTR     obladi.K-58.com.
+```
+
+Daftarkan zona tersebut di `/etc/bind/named.conf.local` sebagai `type master`.
+
+**2. Konfigurasi Slave (`tedd`)**
+
+Daftarkan blok zona yang sama di file `/etc/bind/named.conf.local` pada node Slave, namun atur tipenya untuk menyalin dari Master:
+
+```bind
+zone "10.228.192.in-addr.arpa" { type slave; file "/var/cache/bind/db.10"; masters { 192.228.10.2; }; };
+zone "20.228.192.in-addr.arpa" { type slave; file "/var/cache/bind/db.20"; masters { 192.228.10.2; }; };
+```
+
+**3.** Restart daemon `named` pada kedua node, lalu uji dari terminal klien:
+
+```bash
+nslookup 192.228.10.4
+nslookup 192.228.20.2
+```
+
+![Gambar 8.1 — Hasil pengujian PTR Record](images/8.1.png)
+
+*Gambar 8.1 — Hasil pengujian PTR Record.*
+
+### Analisis
+
+- **Zone Transfer** beroperasi secara otomatis. Node `tedd` mendeteksi parameter **Serial Number** pada SOA record di node `prab`. Ketika bernilai lebih tinggi, `tedd` menyalin seluruh data reverse zone ke dalam `/var/cache/bind/`.
+- Resolusi `in-addr.arpa` ditulis **berlawanan arah** dengan IP biasa (contoh: segmen jaringan `192.228.10.0` dikelola dalam zona `10.228.192.in-addr.arpa`). Konfigurasi ini sangat krusial dalam jaringan riil untuk keperluan verifikasi mail server (anti-spam) dan pencatatan log aktivitas firewall.
+
+---
+
+## Soal 9 — Web Server Statis & Directory Listing (Autoindex)
+
+**Tujuan:** Menginstal layanan web statis HTTP dengan **Apache2** pada node di area Vault (`obladi` dan `desmond`), dan memodifikasi VirtualHost agar direktori `/arsip/` dapat menampilkan struktur filenya secara otomatis.
+
+### Langkah Pengerjaan
+
+**1.** Pada terminal `obladi` dan `desmond`, instal Apache2 lalu buat direktori penyimpanan dan beberapa file dokumen dummy:
+
+```bash
+apt-get update && apt-get install -y apache2
+mkdir -p /arsip
+echo "Dokumen Rahasia 1" > /arsip/laporan.pdf
+```
+
+**2.** Modifikasi file konfigurasi `/etc/apache2/sites-available/000-default.conf` dengan menambahkan blok alias direktori di bawah `DocumentRoot`:
+
+```apache
+Alias /arsip /arsip
+<Directory /arsip>
+        Options Indexes FollowSymLinks
+        AllowOverride None
+        Require all granted
+</Directory>
+```
+
+**3.** Jalankan proses latar belakang Apache menggunakan utilitas langsung karena container tidak memiliki PID 1 (systemd):
+
+```bash
+pkill apache2 2>/dev/null
+apache2ctl -k start
+```
+
+**4.** Pengujian dari terminal `alpha`:
+
+```bash
+curl http://vault.K-58.com/arsip/
+```
+
+![Gambar 9.1 — Output HTML dari indeks direktori /arsip/](images/9.1.png)
+
+*Gambar 9.1 — Output HTML dari indeks direktori `/arsip/`.*
+
+### Analisis
+
+- Eksekusi layanan dilakukan melalui skema *bypass* (`apache2ctl`) untuk menghindari kegagalan inisiasi (`policy-rc.d denied`) dari infrastruktur Docker.
+- Parameter `Options Indexes` pada Apache menginstruksikan server untuk bertindak sebagai fungsi **Autoindex**. Apabila path URL tersebut tidak menyimpan file utama seperti `index.html` atau `index.php`, Apache akan mengonversi daftar file/folder di dalamnya menjadi elemen list HTML yang dapat dibaca dan diakses oleh pengguna.
+
+---
+
+## Soal 10 — Web Dinamis, Load Balancing & Clean URL
+
+**Tujuan:** Mengonfigurasi **Nginx** dan **PHP-FPM** di node Core (`oblada` dan `molly`) untuk merender halaman yang membaca identitas server secara dinamis (membuktikan DNS Round-Robin), dan menyamarkan akses ke skrip PHP menggunakan fitur **Clean URL**.
+
+### Langkah Pengerjaan
+
+**1.** Pada terminal `oblada` dan `molly`, instal seluruh paket dependensi Nginx dan PHP:
+
+```bash
+apt-get update && apt-get install -y nginx php-fpm php-common
+```
+
+**2.** Buat skrip web dinamis (`index.php` dan `profil.php`) di dalam `/var/www/html/` yang memanggil fungsi bawaan OS:
+
+```php
+<?php
+echo "<h1>Welcome to Core Web - Node: " . gethostname() . "</h1>";
+echo "<p>Halaman ini diakses dari server " . gethostname() . ".</p>";
+?>
+```
+
+**3.** Ubah blok server Nginx pada `/etc/nginx/sites-available/default` dengan menambahkan aturan rewrite:
+
+```nginx
+location / {
+    try_files $uri $uri/ $uri.php?$args;
+}
+```
+
+**4.** Hubungkan socket Nginx dengan biner PHP secara manual tanpa layanan `systemctl`:
+
+```bash
+mkdir -p /run/php
+PHP_BIN=$(ls /usr/sbin/php-fpm* | head -n 1)
+$PHP_BIN -D 2>/dev/null
+nginx
+```
+
+**5.** Verifikasi fungsionalitas dari klien `alpha`:
+
+```bash
+# Uji Load Balancing (jalankan beberapa kali)
+curl http://core.K-58.com/
+
+# Uji Clean URL (tanpa menyertakan .php)
+curl http://core.K-58.com/profil
+```
+
+![Gambar 10.1 — Eksekusi URL dinamis dan Clean URL](images/10.1.png)
+
+*Gambar 10.1 — Eksekusi URL dinamis dan Clean URL.*
+
+### Hasil Pengujian
+
+| Skenario Pengujian | Target URL | Output Rendering Halaman |
+|--------------------|-----------|--------------------------|
+| Eksekusi 1 | `http://core.K-58.com/` | Welcome to Core Web - Node: `molly-192-228-10-7` |
+| Eksekusi 2 | `http://core.K-58.com/` | Welcome to Core Web - Node: `oblada-192-228-10-6` |
+| Clean URL | `http://core.K-58.com/profil` | Menampilkan konten `profil.php` dengan mulus walau tanpa ekstensi file |
+
+### Analisis
+
+- Pergantian teks hostname yang dicetak oleh fungsi PHP `gethostname()` mengonfirmasi bahwa routing HTTP secara nyata digilir oleh **Round-Robin DNS BIND9** yang dikonfigurasi pada Soal 7. Ini merupakan demonstrasi sinkronisasi yang valid antara aplikasi Layer 7 (Nginx) dengan resolver jaringan (DNS).
+- Direktif `try_files $uri $uri/ $uri.php?$args` bertindak sebagai *URL Rewriting* di level Nginx. Secara internal, Nginx mencari file `profil`, lalu mencoba folder `/profil/`. Pada evaluasi terakhir, ia menambahkan ekstensi `.php` lalu meneruskannya ke FastCGI secara senyap.
 ## README Dokumentasi Soal 11–20
 
 Dokumen ini mendokumentasikan konfigurasi, script, pengujian, hasil, dan poin presentasi untuk soal 11–20. Isinya mengikuti script dan bukti yang tersimpan pada dokumen praktikum yang diberikan. filecite tidak ditulis di dalam file markdown; citation dicantumkan pada jawaban ChatGPT.
